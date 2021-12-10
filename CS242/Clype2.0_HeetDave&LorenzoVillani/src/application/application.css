@@ -1,0 +1,15 @@
+/* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+
+.graytheme	{
+	-fx-background-color: #858585;
+	-fx-text-fill: white;
+}
+
+.greentheme	{
+	-fx-background-color: #468847;
+	-fx-text-fill: white;
+}
+
+.greenfont	{
+	-fx-text-fill: #468847
+}

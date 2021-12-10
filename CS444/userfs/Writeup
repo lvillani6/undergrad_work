@@ -1,0 +1,104 @@
+Lorenzo Villani: User File System Writeup
+
+I couldn't get the data recovery system working for fschk. Out of everything required I believe that this was the one piece that I failed to achieve.
+To the best of my understanding and ability it can detect inconsistency, and had I more time I think I could figure out how to recover it.
+However, it was a big discovery for me to figure out how to read the disk properly and check for inconsistency.
+I wasn't able to implement the recovery in the time I had and with the poor understanding I had of how to perform it.
+
+Whenever data is being modified to the filesystem, I tried to perform updates in the following order:
+
+set sb.clean_shutdown to FALSE
+update sb on disk
+modify data
+update bit_map on disk
+modify dir
+update dir on disk
+modify sb
+set sb.clean_shutdown to TRUE
+update sb on disk
+
+I did all the modifying in between updating sb.clean_shutdown to FALSE and then TRUE again.
+If I was being even better about it, it would probably be good to update eveything on disk after I change the data since everything is affected by it but I at least made sure to update the bitmap immediately after altering data.
+There is a bit more nuance in exactly when I update the disk.
+Essentially I only update after a complete operation.
+This way if a crash occurs, anything that didn't complete wasn't partially written to disk.
+
+Only u_import and u_del change the data on the disk since u_export just reads and then writes to the filesystem so I only went through this process for those two.
+Finally I made sure that whenever allocate_block or free_block were being called the bit_map was written to disk as soon after as possible.
+
+u_import
+	Open file in linux file system.
+	Get info about linux file: size and time last modified.
+	Ensures requisite space on disk.
+	Finds a free inode
+	Sets clean shutdown to false, saves to userfs disk.
+	Writes file contents to userfs disk
+	Updates bitmap in userfs disk.
+	Sets inode information: free = FALSE, file_size_bytes, num_blocks, last_modified.
+	Updates inode in userfs disk.
+	Finds a free fle space in the directory.
+	Sets directory information: inode_number, file_name, free = FALSE, increment number of files.
+	Updates directory in userfs disk.
+	Sets clean shutdown to true, saves to userfs disk.
+
+	I also wrote the following helper functions for u_import.
+	find_free_inode
+		Finds the first free inode.
+
+	find_free_block
+		Finds the first free block,
+		This starts from block 3+NUM_INODE_BLOCKS because that's where the data blocks start.
+
+	find_free_file
+		Finds the first free file.
+
+u_export
+	Check if the file already exists in the linux file system.
+	Search the user file system for the file and seek to it if found.
+	Create the file in the linux file system and write to it.
+	Give user readwrite access to file.
+
+u_del
+
+	Sets clean shutdown to false, saves to userfs disk.
+	Search the user file system for the file.
+	Free the blocks used as well as the inode and directory.
+	Finally, decrement the number of files in the directory.
+	Updates bitmap in userfs disk.
+	Updates directory in userfs disk.
+	Sets clean shutdown to true, saves to userfs disk.
+
+u_fsck
+	Counts the number of free files in the directory and compares to number recorded in superblock.
+	Look at inodes in use and make sure that theres at least one file associated.
+	Count the number of blocks in use.
+	Compare the actual and expected number of blocks in use.
+
+u_clean_shutdown
+	Writes sb to disk and shuts down.
+	I couldn't think of anything else to add to this because the only time it's being called is in the exit function and no other values are changing so I left it as is.
+
+
+Just for fun, and to test my knowledge I decided to try and snack on some of the food for thought. I'm not 100% confident on all my answers.
+
+What is the largest file you can create in your file system?
+	As each file can be at most 100 blocks, the largest possible file is:
+	(BLOCK_SIZE_BYTES * 100) - 1 = (4096 * 100) - 1 = 409599 Bytes
+What is the largest number of files?
+	Single directory with up to 100 files.
+What is the largest number of directory it can support?
+	One directory.
+How many subdirectory it can support?
+	None.
+If we reduce the block size, we also reduce the size of the bit map and the root directory. How do the answers to the above questions change with a block size of 1024? 8192?
+	Neither change the hardcoded number of files and directories, but the largest possible file will change:
+	1024: 102399
+	8192: 819199
+Some simple things we could do to alleviate this problem is use each bit in the bit map rather than using an entire unsigned long ( 4 bytes) to represent a "bit" and make the root level directory be variable sized (i.e. give it its own inode).
+	I did think it was inefficient that each bit was being represented as an unsigned int.
+You learned the effects of what happens when more than one concurrent thread accesses a resource. What would happen if two instances of the userfs were to access the file? What would be a good way to protect the file from these effects?
+	Between the crashes and the constant reading and writing, it would completely obliterate the integrity of the virtual disk.
+	I suppose you could make the disk some sort of locking mechanism that each userfs on its own thread could access only one at a time.
+Suppose that a random bit was flipped in your file and it doesn't corrupt the file system. How could you detect that an error had occured and how would you fix it?
+	When I was on study abroad, I took a class that discussed Hamming Codes and CRCs to protect against bit flips.
+	Depending on how many bits you needed to be able to fix, certain error detection codes can automatically detect and even fix the flipped bit.

@@ -1,0 +1,31 @@
+To run the user file system use:
+Initialize:
+	./userfs -reformat <disk_size> <disk_name>
+Run:
+	./userfs <disk_name>
+
+Files Included:
+
+fs.html
+	Specifies project requirements.
+
+Makefile
+	Makefile to compile the userfs.
+
+parse.h
+	Header file for command parser.
+
+parse.c
+	Parser user commands in the userfs. Processes input to pass to userfs.
+
+crash.h
+	Header file for crash emulator.
+
+crash.c
+	Emulates crashes in userfs. Primary functionality consists of read/write wrappers that cause crash after a random number of seconds.
+
+userfs.h
+	Header file for userfs. Contains data structure and global constants.
+
+userfs.c
+	Contains the userfs program itself. Has functionality for importing, exporting, deleting, and listing files. Also does file system checks for consistency and attempts to mitigate damage done on crash to file system integrity.
